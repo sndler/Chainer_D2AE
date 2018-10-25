@@ -3,8 +3,9 @@ import numpy as np
 import os
 
 class Config(object):
-    CelevAdir = 'share/datasets/CelebA/'
-    pretrainmodel_path='DATA/inception_resnet.npz'
+    CelevAdir = 'cleba dataset dir path'
+    lfwdir='lfw dataset dir path'
+    pretrainmodel_path='pretrainmodel path'
     lr=0.01
 
     def __init__(self):
