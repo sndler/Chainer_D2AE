@@ -1,28 +1,28 @@
-def eval_classification(dataset, d2ae, ip, evaln, batchn, gpu,msg='tmp'):
+import chainer
+import random
+import numpy as np
+import cupy
+import chainer.functions as F
+from chainer import Variable
+import cv2
+
+
+
+
+
+def eval_classification(dataset, d2ae, ip, evaln, batchn, device,msg='tmp'):
     def load_image(dataset, i,i_end, random_crop=False):
         imgs=[]; imgs_out=[]; labels=[]
-        resize_shape=(int(235*1.2),int(235*1.2))
         crop_size=235
         for i in range(i,i_end):
             imn, label=dataset[i]
             img=cv2.imread(imn)
             img=img[:,:,::-1]
-            #img=cv2.resize(img,resize_shape)
-            img=cv2.resize(img,(crop_size,crop_size))
-            if random_crop==True:
-                h,w=resize_shape
-                top = random.randint(0, h - crop_size - 1)
-                left = random.randint(0, w - crop_size - 1)
-                bottom = top + crop_size
-                right = left + crop_size
-                #img = img[top:bottom, left:right, :]
-                if random.random()>0.5:
-                    img=img[:,::-1,:]
-            
-            img_in=img.transpose(2,0,1).astype(np.float32)
-            img_in /= 255. 
+            img_in=cv2.resize(img,(crop_size,crop_size)).astype(np.float32)
+            img_in /= 255.
             img_in -= 0.5 # mean 0.5
             img_in *= 2.0 # std 0.5
+            img_in=img_in.transpose(2,0,1).astype(np.float32)
             imgs.append(img_in)
             labels.append(label)
         return (np.asarray(imgs), labels)
@@ -43,14 +43,15 @@ def eval_classification(dataset, d2ae, ip, evaln, batchn, gpu,msg='tmp'):
         mean_top100_acc2=0
         mean_top1000_acc2=0
         for i in range(evaln):
-            start=i*batchn
+            start=random.randint(0,100)
+            start=min(len(dataset)-batchn,start)
             end=start+batchn
             batch, label = load_image(dataset,start,end)
             batchsize = len(batch)
             x = []; 
             for i in range(batchsize):
                 x.append(np.asarray(batch[i]).astype("f"))
-            with cupy.cuda.Device(gpu):
+            with cupy.cuda.Device(device):
                 x_in = Variable(xp.asarray(x))
             with chainer.using_config('train', False), chainer.using_config('enable_backprop', False):
                 X,X_hat,yt,fp = d2ae(x_in)
@@ -76,7 +77,6 @@ def eval_classification(dataset, d2ae, ip, evaln, batchn, gpu,msg='tmp'):
             mean_top100_acc2 += top100_acc2
             mean_top1000_acc2 += top1000_acc2
 
-        #mean_top1_acc /= evaln
         mean_top10_acc1 /= evaln
         mean_top100_acc1 /= evaln
         mean_top1000_acc1 /= evaln
@@ -94,30 +94,21 @@ def eval_classification(dataset, d2ae, ip, evaln, batchn, gpu,msg='tmp'):
         print('top1000score: ',mean_top1000_acc2)
     return evaluation
 
-def eval_reconstruction(dataset, d2ae, batchn, gpu,msg='tmp', out='results'):
+def eval_reconstruction(dataset, d2ae, batchn, device,msg='tmp', out='results'):
     def load_image(dataset, i,i_end, random_crop=False):
         imgs=[]; imgs_out=[]; labels=[]; imgs_org=[];
-        resize_shape=(int(235*1.2),int(235*1.2))
         crop_size=235
         for i in range(i,i_end):
             imn, label=dataset[i]
             img=cv2.imread(imn)
             img=img[:,:,::-1]
-            #img=cv2.resize(img,resize_shape)
-            img=cv2.resize(img,(crop_size,crop_size))
-            if random_crop==True:
-                h,w=resize_shape
-                top = random.randint(0, h - crop_size - 1)
-                left = random.randint(0, w - crop_size - 1)
-                bottom = top + crop_size
-                right = left + crop_size
-                #img = img[top:bottom, left:right, :]
-            
-            img_in=img.transpose(2,0,1).astype(np.float32)
-            img_in /= 255. 
+            img_in=cv2.resize(img,(crop_size,crop_size)).astype(np.float32)
+            img_in /= 255.
             img_in -= 0.5 # mean 0.5
             img_in *= 2.0 # std 0.5
+            img_in=img_in.transpose(2,0,1).astype(np.float32)
             imgs.append(img_in)
+            #print(img.shape)
             imgs_org.append(img[:,:,::-1])
             labels.append(label)
         return (np.asarray(imgs), labels, np.asarray(imgs_org))
@@ -126,14 +117,15 @@ def eval_reconstruction(dataset, d2ae, batchn, gpu,msg='tmp', out='results'):
     def evaluation(trainer):
         xp = d2ae.xp
         for i in range(1):
-            start=i*batchn
+            start=random.randint(0,100)
+            start=min(len(dataset)-batchn,start)
             end=start+batchn
             batch, label,img_org = load_image(dataset,start,end)
             batchsize = len(batch)
             x = []; 
             for i in range(batchsize):
                 x.append(np.asarray(batch[i]).astype("f"))
-            with cupy.cuda.Device(gpu):
+            with cupy.cuda.Device(device):
                 x_in = Variable(xp.asarray(x))
             with chainer.using_config('train', False), chainer.using_config('enable_backprop', False):
                 X,X_hat,yt,fp = d2ae(x_in)
@@ -141,8 +133,17 @@ def eval_reconstruction(dataset, d2ae, batchn, gpu,msg='tmp', out='results'):
             X=X.transpose(0,2,3,1)
             X = 0.5 * (X + 1)  # [-1,1] => [0, 1]
             X = np.clip(X,0, 1)
-            X=(X*255).astype(np.uint8)
+            #print(X.shape)
             X=X[0,:,:,::-1]
+            X=(X*255).astype(np.uint8)
             cv2.imwrite(out+'/tmp'+str(trainer.updater.iteration)+'.png',X)
-            cv2.imwrite('results/org.png',img_org[0])
+
+            X=chainer.cuda.to_cpu(x_in.data)
+            X=X.transpose(0,2,3,1)
+            X = 0.5 * (X + 1)  # [-1,1] => [0, 1]
+            X = np.clip(X,0, 1)
+            #print(X.shape)
+            X=X[0,:,:,::-1]
+            X=(X*255).astype(np.uint8)
+            cv2.imwrite(out+'/org'+str(trainer.updater.iteration)+'.png',X)
     return evaluation

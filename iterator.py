@@ -1,6 +1,6 @@
 from __future__ import division
 
-import numpy
+import numpy as np
 import cv2
 from chainer.dataset import iterator
 import random
@@ -14,7 +14,7 @@ class MyIterator(iterator.Iterator):
         self._repeat = repeat
         self._shuffle = shuffle
         self.crop_size=235
-        self.resize_shape=(int(235*1.05),int(235*1.05))
+        self.resize_shape=(int(235*1.00),int(235*1.00))
         self.random_crop=True
 
         self.reset()
@@ -26,29 +26,22 @@ class MyIterator(iterator.Iterator):
             imn, label=self.dataset[self._order[i]]
             img=cv2.imread(imn)
             img=img[:,:,::-1]
-            #img=cv2.resize(img,self.resize_shape)
             img=cv2.resize(img,(self.crop_size,self.crop_size))
-            if self.random_crop==True:
-                h,w=self.resize_shape
-                top = random.randint(0, h - self.crop_size - 1)
-                left = random.randint(0, w - self.crop_size - 1)
-                bottom = top + self.crop_size
-                right = left + self.crop_size
-                #img = img[top:bottom, left:right, :]
-                if random.random()>0.5:
-                    img=img[:,::-1,:]
-            img_in=img.transpose(2,0,1).astype(np.float32)
+            img_in = img.transpose(2,0,1).astype(np.float32)
             img_in /= 255 
             img_in -= 0.5 # mean 0.5
             img_in *= 2.0 # std 0.5
             imgs.append(img_in)
 
-            img_out=cv2.resize(img,(320,320)).transpose(2,0,1)
-            img_out = img_out.astype(np.float32)/255
+            img_out=cv2.resize(img,(256,256)).transpose(2,0,1)
+            img_out = img_out.astype(np.float32)
+            img_out /= 255 
             img_out -= 0.5
             img_out *= 2.0
             imgs_out.append(img_out)
             labels.append(label)
+            
+            
         return (np.asarray(imgs), np.asarray(imgs_out), labels)
 
     def __next__(self):
@@ -70,7 +63,7 @@ class MyIterator(iterator.Iterator):
             if self._repeat:
                 rest = i_end - N
                 if self._order is not None:
-                    numpy.random.shuffle(self._order)
+                    np.random.shuffle(self._order)
                 if rest > 0:
                     batch = self.load_image(0,self.batch_size)
                 self.current_position = self.batch_size
@@ -122,7 +115,7 @@ class MyIterator(iterator.Iterator):
 
     def reset(self):
         if self._shuffle:
-            self._order = numpy.random.permutation(len(self.dataset))
+            self._order = np.random.permutation(len(self.dataset))
         else:
             self._order = None
 

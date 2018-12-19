@@ -80,7 +80,8 @@ if __name__ == '__main__':
     report_keys = ["loss1","loss2","loss_I","loss_X","loss_adv", "loss_H"]
 
     trainer = training.Trainer(updater, (args.max_iter, 'iteration'), out=args.out)
-
+    trainer.extend(MultistepShift('lr', 0.1, [args.epoch_iter*10,args.epoch_iter*20], 1e-2, optimizer=opts["opt_d2ae"]))
+    trainer.extend(MultistepShift('lr', 0.1, [args.epoch_iter*10,args.epoch_iter*20], 1e-2, optimizer=opts["opt_ip"]))
     trainer.extend(extensions.LogReport(keys=report_keys,
                                         trigger=(args.display_interval, 'iteration')))
     trainer.extend(extensions.snapshot_object(

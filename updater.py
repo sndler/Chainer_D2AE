@@ -5,6 +5,7 @@ import chainer
 import chainer.functions as F
 from chainer import Variable
 import cupy
+from chainer.dataset import convert
 
 class Updater(chainer.training.StandardUpdater):
     def __init__(self, *args, **kwargs):
@@ -13,6 +14,7 @@ class Updater(chainer.training.StandardUpdater):
         self.lamdat=1
         self.lamdap=0.1
         self.lamdax= 1.81e-5
+        self.convert = convert.concat_examples
         
         super(Updater, self).__init__(*args, **kwargs)
 
@@ -21,16 +23,14 @@ class Updater(chainer.training.StandardUpdater):
         ip_optimizer = self.get_optimizer('opt_ip')
         xp = self.d2ae.xp
 
-        batch, batch_out, label = self.get_iterator('main').next()
-        batchsize = len(batch)
-        x = []; x_out=[]
-        for i in range(batchsize):
-                x.append(np.asarray(batch[i]).astype("f"))
-                x_out.append(np.asarray(batch_out[i]).astype("f"))
-        with cupy.cuda.Device(self.config.gpu):
-            x_in = Variable(xp.asarray(x))
-            x_out = Variable(xp.asarray(x_out))
-            label = Variable(xp.asarray(label, dtype=np.int32))
+        x_in, x_out, label = self.get_iterator('main').next()
+        x_in = self.converter(x_in, self.device)
+        x_out = self.converter(x_out, self.device)
+        label = self.converter(label, self.device)
+        x_in=xp.array(x_in)
+        x_out=xp.array(x_out)
+        label=xp.array(label)
+        
 
         X,X_hat,yt,fp = self.d2ae(x_in)
         yp=self.ip(fp)
@@ -44,7 +44,7 @@ class Updater(chainer.training.StandardUpdater):
         d2ae_optimizer.update()
         chainer.reporter.report({'loss_I': loss_I})        
         chainer.reporter.report({'loss_X': self.lamdax*loss_X})        
-        chainer.reporter.report({'loss1': loss1})        
+        chainer.reporter.report({'loss1': loss1})
 
         self.ip.cleargrads()
         loss_adv = F.softmax_cross_entropy(yp,label)

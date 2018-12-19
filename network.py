@@ -17,20 +17,22 @@ class Subnet(chainer.Chain):
         super(Subnet, self).__init__()
         with self.init_scope():
             self.conv1 = L.Convolution2D(1536, 256, 3,1,pad=1, initialW=initializer)
-            self.bn1 = L.BatchNormalization(256)
+            self.bn1 = L.BatchNormalization(256, 1e-3)
             self.conv2 = L.Convolution2D(256, 256, 3,1,pad=1, initialW=initializer)
-            self.bn2 = L.BatchNormalization(256)
+            self.bn2 = L.BatchNormalization(256, 1e-3)
             self.conv3 = L.Convolution2D(256, 256, 3,1,pad=1, initialW=initializer)
-            self.bn3 = L.BatchNormalization(256)
-            self.fc = L.Convolution2D(256, 256,1,1,pad=0, initialW=initializer)
-            self.bn4 = L.BatchNormalization(256)
+            self.bn3 = L.BatchNormalization(256, 1e-3)
+            self.fc = L.Convolution2D(256*6*6, 256,1,1,pad=0, initialW=initializer)
+            #self.fc = L.Convolution2D(256, 256,1,1,pad=0, initialW=initializer)
+            self.bn4 = L.BatchNormalization(256, 1e-3)
 
     def __call__(self, x):
         x = F.relu(self.bn1(self.conv1(x)))
         x = F.relu(self.bn2(self.conv2(x)))
         x = F.relu(self.bn3(self.conv3(x)))
-        x = F.average_pooling_2d(x, (x.shape[2],x.shape[3]))
-        x = F.relu(self.bn3(self.fc(x)))
+        #x = F.average_pooling_2d(x, (x.shape[2],x.shape[3]))
+        x = F.reshape(x,(x.shape[0],256*6*6,1,1))
+        x = F.relu(self.bn4(self.fc(x)))
         #x = F.reshape(x, (x.shape[0],x.shape[1]))
         return x
 
@@ -47,18 +49,19 @@ class Identity(chainer.Chain):
 
 
 class D2AE(chainer.Chain):
-    def __init__(self, config, encoder, identityn):
+    def __init__(self, config, encoder, identityn, device):
         super(D2AE, self).__init__()
         with self.init_scope():
             self.encoder = encoder
-            self.decoder = Decoder()
+            self.decoder = Decoder(config)
             self.bt = Subnet()
             self.it = Identity(identityn)
             self.bp = Subnet()
             self.config=config
+            self.device=device
 
     def statistical_augment(self,inputs, mean=0, stddev=0.01):
-        with cupy.cuda.Device(self.config.gpu):        
+        with cupy.cuda.Device(self.device):        
             std=np.std(inputs.data,axis=0)
             std=chainer.cuda.to_cpu(std)
             std=np.tile(std, (len(inputs),1,1,1))
@@ -75,8 +78,8 @@ class D2AE(chainer.Chain):
         fp=self.bp(x)
         ft_hat = self.statistical_augment(ft)
         fp_hat = self.statistical_augment(fp)
-        x=F.concat((ft,fp),axis=1)
+        cc=F.concat((ft,fp),axis=1)
         x_hat=F.concat((ft_hat,fp_hat),axis=1)
-        x=self.decoder(x)
+        x=self.decoder(cc)
         x_hat=self.decoder(x_hat)
         return x, x_hat, yt, fp
