@@ -18,6 +18,21 @@ class BasicConv2d(chainer.Chain):
         x = self.bn(x)
         x = F.relu(x)
         return x
+
+"""
+class Sequential(chainer.ChainList):
+    def __init__(self, blocks):
+        super(Sequential, self).__init__()
+        layers = []
+        for i in range(len(blocks)):
+            layers.append(blocks[i])
+        super().__init__(*layers)
+    def __call__(self, x):
+        for i in range(len(self)):
+            x = self[i](x)
+        return x
+"""
+
 class Mixed_5b(chainer.Chain):
 
     def __init__(self):

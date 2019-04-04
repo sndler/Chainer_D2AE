@@ -12,16 +12,6 @@ class Updater(chainer.training.StandardUpdater):
         self.config = kwargs.pop('config')
         super(Updater, self).__init__(*args, **kwargs)
 
-    def get_optimizer_lr(self):
-        if self.epoch<=10:
-            return self.config.lr
-        elif self.epoch<=20:
-            return self.config.lr*0.1
-        elif self.epoch<=30:
-            return self.config.lr*0.1*0.1
-        else:
-            return self.config.lr*0.1*0.1*0.1
-
     def update_core(self):
         optimizer = self.get_optimizer('opt')
         xp = self.cl.xp
@@ -41,6 +31,5 @@ class Updater(chainer.training.StandardUpdater):
         loss.backward()
         optimizer.update()
         chainer.reporter.report({'loss': loss})
-        optimizer.lr = self.get_optimizer_lr()
 
 

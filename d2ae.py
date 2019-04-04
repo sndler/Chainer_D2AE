@@ -7,41 +7,12 @@ import network
 from chainer import training
 from chainer.training import extension
 from chainer.training import extensions
-import updater.Updater
-import iterator.MyIterator
+from updater_cl import Updater
+from iterator import MyIterator
+from encoder import InceptionResNetV2
 from config import Config
+from util import MultistepShift
 
-
-def make_adam_optimizer(model, alpha, beta1, beta2):
-    optimizer = chainer.optimizers.Adam(alpha=alpha, beta1=beta1, beta2=beta2)
-    optimizer.setup(model)
-    return optimizer
-def make_sgd_optimizer(model, lr):
-    optimizer = chainer.optimizers.MomentumSGD(lr=lr, momentum=0.9)
-    optimizer.setup(model)
-    return optimizer
-def celebA_load(config):
-    fn=config.celevA_dir+'Eval/list_eval_partition.txt'    
-    impath=config.celevA_dir+'Img/img_align_celeba/'
-    f = open(fn, "r");infos = f.readlines();f.close()
-    fn=config.celevA_dir+'Anno/identity_CelebA.txt'
-    f = open(fn, "r");identity_infos = f.readlines();f.close()
-    train_list=[]
-    val_list=[]
-    test_list=[]
-    all_labels=[]
-    for i in range(len(infos)):
-        info=infos[i].split()
-        identity_info=identity_infos[i].split()
-        if int(info[1])==0:
-            train_list.append((impath+info[0],identity_info[1]))
-        if int(info[1])==1:
-            val_list.append((impath+info[0],identity_info[1]))
-        if int(info[1])==2:
-            test_list.append((impath+info[0],identity_info[1]))
-        all_labels.append(int(identity_info[1]))
-    identityn=max(all_labels)
-    return train_list, val_list, test_list, identityn
 
 if __name__ == '__main__':
 

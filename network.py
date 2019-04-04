@@ -7,7 +7,7 @@ import cupy as xp
 import cupy
 #import encoder.Encoder
 #import decoder.Decoder
-
+from decoder import Decoder
 from chainer import Variable
 import chainer.cuda
 

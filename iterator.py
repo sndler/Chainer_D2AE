@@ -25,6 +25,9 @@ class MyIterator(iterator.Iterator):
                 break
             imn, label=self.dataset[self._order[i]]
             img=cv2.imread(imn)
+            while img is None:
+                imn, label=self.dataset[random.randint(0,len(self.dataset)-1)]
+                img=cv2.imread(imn)
             img=img[:,:,::-1]
             img=cv2.resize(img,(self.crop_size,self.crop_size))
             img_in = img.transpose(2,0,1).astype(np.float32)
